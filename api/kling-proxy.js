@@ -85,10 +85,19 @@ export default async function handler(request, response) {
     if (!imageUrl) {
       return response.status(504).json({ error: 'Kling generation timed out.' });
     }
+
+    // Fetch the actual image bytes server-side and convert to a data URI — the browser then
+    // sees this as embedded, same-origin data rather than a foreign hosted URL, which avoids
+    // a "tainted canvas" error when the panel-promote/crop code later draws it onto a canvas.
+    const imageBytesResponse = await fetch(imageUrl);
+    const imageArrayBuffer = await imageBytesResponse.arrayBuffer();
+    const imageBase64 = Buffer.from(imageArrayBuffer).toString('base64');
+    const dataUri = `data:image/png;base64,${imageBase64}`;
+
     // Return in the exact shape your HTML script expects
     return response.status(200).json({
-      url: imageUrl,
-      data: [{ url: imageUrl }]
+      url: dataUri,
+      data: [{ url: dataUri }]
     });
   } catch (err) {
     return response.status(500).json({ error: 'Proxy failed to reach Kling.', detail: String(err) });
