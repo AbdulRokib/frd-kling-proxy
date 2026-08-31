@@ -38,6 +38,7 @@ export default async function handler(request, response) {
   }
 
   try {
+    // 1. Submit task to Kling
     const klingResponse = await fetch('https://api-singapore.klingai.com/v1/images/omni-image', {
       method: 'POST',
       headers: {
@@ -47,25 +48,57 @@ export default async function handler(request, response) {
       body: JSON.stringify({
         model: 'kling-image-o1',
         prompt: prompt,
-        resolution: '2k',
         aspect_ratio: '16:9',
         n: 1
       })
     });
 
-    const data = await klingResponse.json();
+    const submitData = await klingResponse.json();
 
-    if (!klingResponse.ok) {
-      return response.status(klingResponse.status).json({
-        error: `Kling Image API error ${klingResponse.status}`,
-        detail: data
+    if (!klingResponse.ok || submitData.code !== 0) {
+      return response.status(klingResponse.status || 400).json({
+        error: `Kling API error`,
+        detail: submitData
       });
     }
 
-    // Pass Kling's real response straight through, unmodified — the HTML file's own
-    // parsing logic (already built to handle b64_json, url, or a task_id) decides what
-    // to do with it, same as it would with a direct call.
-    return response.status(200).json(data);
+    const taskId = submitData.data?.task_id;
+    if (!taskId) {
+      return response.status(500).json({ error: 'No task_id returned by Kling.', detail: submitData });
+    }
+
+    // 2. Poll task status until complete (up to 30 seconds)
+    let imageUrl = null;
+    for (let i = 0; i < 15; i++) {
+      await new Promise(r => setTimeout(r, 2000));
+
+      const checkResponse = await fetch(`https://api-singapore.klingai.com/v1/images/omni-image/${taskId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': 'Bearer ' + apiKey
+        }
+      });
+
+      const checkData = await checkResponse.json();
+      const status = checkData.data?.task_status;
+
+      if (status === 'succeed') {
+        imageUrl = checkData.data?.task_result?.images?.[0]?.url;
+        break;
+      } else if (status === 'failed') {
+        return response.status(500).json({ error: 'Kling task failed', detail: checkData });
+      }
+    }
+
+    if (!imageUrl) {
+      return response.status(504).json({ error: 'Kling generation timed out.' });
+    }
+
+    // Return in the exact shape your HTML script expects
+    return response.status(200).json({
+      url: imageUrl,
+      data: [{ url: imageUrl }]
+    });
 
   } catch (err) {
     return response.status(500).json({ error: 'Proxy failed to reach Kling.', detail: String(err) });
