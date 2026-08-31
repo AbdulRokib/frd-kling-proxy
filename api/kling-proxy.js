@@ -70,7 +70,7 @@ export default async function handler(request, response) {
       return response.status(500).json({ error: 'No task_id returned by Kling.', detail: submitData });
     }
     // 2. Poll task status until complete (up to 50 seconds)
-    let imageUrl = null;
+    let resultImageUrl = null;
     for (let i = 0; i < 25; i++) {
       await new Promise(r => setTimeout(r, 2000));
       const checkResponse = await fetch(`https://api-singapore.klingai.com/v1/images/omni-image/${taskId}`, {
@@ -82,19 +82,19 @@ export default async function handler(request, response) {
       const checkData = await checkResponse.json();
       const status = checkData.data?.task_status;
       if (status === 'succeed') {
-        imageUrl = checkData.data?.task_result?.images?.[0]?.url;
+        resultImageUrl = checkData.data?.task_result?.images?.[0]?.url;
         break;
       } else if (status === 'failed') {
         return response.status(500).json({ error: 'Kling task failed', detail: checkData });
       }
     }
-    if (!imageUrl) {
+    if (!resultImageUrl) {
       return response.status(504).json({ error: 'Kling generation timed out.' });
     }
     // Return in the exact shape your HTML script expects
     return response.status(200).json({
-      url: imageUrl,
-      data: [{ url: imageUrl }]
+      url: resultImageUrl,
+      data: [{ url: resultImageUrl }]
     });
   } catch (err) {
     return response.status(500).json({ error: 'Proxy failed to reach Kling.', detail: String(err) });
