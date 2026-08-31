@@ -37,7 +37,7 @@ export default async function handler(request, response) {
     // to prevent the error, rather than letting it fail intermittently.
     const safePrompt = prompt.length > 2400 ? prompt.slice(0, 2400) : prompt;
     const requestBody = {
-      model: 'kling-v3-omni',
+      model: 'kling-image-o1',
       prompt: safePrompt,
       aspect_ratio: '16:9',
       n: 1
@@ -76,7 +76,7 @@ export default async function handler(request, response) {
     }
     // 2. Poll task status until complete (up to 50 seconds)
     let resultImageUrl = null;
-    for (let i = 0; i < 25; i++) {
+    for (let i = 0; i < 27; i++) {
       await new Promise(r => setTimeout(r, 2000));
       const checkResponse = await fetch(`https://api-singapore.klingai.com/v1/images/omni-image/${taskId}`, {
         method: 'GET',
