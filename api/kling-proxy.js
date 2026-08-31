@@ -31,9 +31,14 @@ export default async function handler(request, response) {
   }
   try {
     // 1. Submit task to Kling
+    // Kling's own API confirmed (live, 31 Aug 2026): prompt length must be under 2500 characters
+    // (error code 1201, "size must be between 0 and 2500"). The full FRD art-direction prompt
+    // occasionally exceeds this depending on mood/scene complexity — truncated here with margin
+    // to prevent the error, rather than letting it fail intermittently.
+    const safePrompt = prompt.length > 2400 ? prompt.slice(0, 2400) : prompt;
     const requestBody = {
       model: 'kling-v3-omni',
-      prompt: prompt,
+      prompt: safePrompt,
       aspect_ratio: '16:9',
       n: 1
     };
