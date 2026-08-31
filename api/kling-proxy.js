@@ -47,7 +47,7 @@ export default async function handler(request, response) {
       body: JSON.stringify({
         model: 'kling-image-o1',
         prompt: prompt,
-        resolution: '2k',
+        resolution: '2K',
         aspect_ratio: '16:9',
         n: 1
       })
