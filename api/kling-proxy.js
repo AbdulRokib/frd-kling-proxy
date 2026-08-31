@@ -32,7 +32,7 @@ export default async function handler(request, response) {
   try {
     // 1. Submit task to Kling
     const requestBody = {
-      model: 'kling-image-o1',
+      model: 'kling-v3-omni',
       prompt: prompt,
       aspect_ratio: '16:9',
       n: 1
