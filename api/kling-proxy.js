@@ -38,7 +38,7 @@ export default async function handler(request, response) {
   }
 
   try {
-    const klingResponse = await fetch('https://api-singapore.klingai.com/v1/images/generations', {
+    const klingResponse = await fetch('https://api-singapore.klingai.com/v1/images/omni-image', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
