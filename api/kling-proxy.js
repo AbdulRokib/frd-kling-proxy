@@ -1,18 +1,12 @@
 // FRD real Kling — proxy function
 //
-// This exists purely to work around CORS: browsers block direct calls from an HTML
-// file to Kling's API, but servers aren't restricted by CORS at all — so this small
-// function sits in the middle. Your browser calls THIS, this calls Kling, Kling's
-// answer comes back through this to your browser.
-//
-// Your real Kling API key lives here, as an environment variable (set in Vercel's own
-// dashboard, step-by-step instructions provided separately) — never in the HTML file,
-// never visible to anyone who views the page's source. This is more secure than every
-// other file in this project, not less.
+// Your real Kling API key lives here, as an environment variable in Vercel.
+
+export const config = {
+  maxDuration: 60,
+};
 
 export default async function handler(request, response) {
-  // Allow the browser to actually call this endpoint (this proxy's own CORS headers —
-  // safe to leave open here since the real secret, the Kling key, never leaves this server).
   response.setHeader('Access-Control-Allow-Origin', '*');
   response.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   response.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -67,9 +61,9 @@ export default async function handler(request, response) {
       return response.status(500).json({ error: 'No task_id returned by Kling.', detail: submitData });
     }
 
-    // 2. Poll task status until complete (up to 30 seconds)
+    // 2. Poll task status until complete (up to 50 seconds)
     let imageUrl = null;
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < 25; i++) {
       await new Promise(r => setTimeout(r, 2000));
 
       const checkResponse = await fetch(`https://api-singapore.klingai.com/v1/images/omni-image/${taskId}`, {
