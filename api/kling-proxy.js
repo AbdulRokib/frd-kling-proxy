@@ -19,7 +19,7 @@ export default async function handler(request, response) {
   if (request.method !== 'POST') {
     return response.status(405).json({ error: 'Only POST requests are accepted.' });
   }
-  const { prompt, imageUrls } = request.body || {};
+  const { prompt, imageUrl, imageUrls } = request.body || {};
   if (!prompt) {
     return response.status(400).json({ error: 'Missing "prompt" in request body.' });
   }
@@ -41,7 +41,13 @@ export default async function handler(request, response) {
     // Quick Setup edit calls, not the base single-word generation. UNCONFIRMED whether Kling
     // accepts a base64 data URI here or strictly requires a real hosted URL — this is the
     // real, live test for that question, same approach as everything else in this build.
-    if (imageUrls && imageUrls.length > 0) {
+    // Kling's own docs distinguish two separate parameters: image_url (singular) for a single
+    // reference — Multi-Cam/Pose/Edit Board — versus image_urls (plural array) for genuine
+    // multi-image fusion — Quick Setup's 3-reference merge specifically. Sending a single
+    // reference as an array was the likely cause of Kling appearing to ignore it.
+    if (imageUrl) {
+      requestBody.image_url = imageUrl;
+    } else if (imageUrls && imageUrls.length > 0) {
       requestBody.image_urls = imageUrls;
     }
     const klingResponse = await fetch('https://api-singapore.klingai.com/v1/images/omni-image', {
