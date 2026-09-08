@@ -10,16 +10,17 @@
 // This mirrors how the browser-side code needs to call it: once to start, then repeatedly to
 // check progress, all through this one proxy URL.
 //
-// IMPORTANT — genuinely untested piece, flagged honestly: this poll approach (POST to the SAME
-// creation URL, with only "task_id" in the body instead of "contents") is a reasoned guess, not
-// a confirmed official example. It's based on real evidence from the previous attempt: GET with
-// a query-string task_id returned Kling's own error code 1202 ("HTTP method is not supported")
-// on this exact path — meaning the route itself IS real, just not reachable via GET. This
-// assumes the same endpoint distinguishes a status check from a new task by which fields are
-// present in the POST body. Two earlier guesses (path-segment task_id, and /tasks/{id}) both
-// returned plain 404s. The create step's shape (contents/refer_image, including base64 support)
-// IS fully confirmed from official docs and is not in question — only this poll approach is
-// still being resolved by trial.
+// IMPORTANT — genuinely untested piece, flagged honestly: this is the best-evidenced attempt yet,
+// but still not confirmed for the SYSTEM-generated task id specifically. A real official example
+// was found for this exact `/tasks` endpoint using `?external_task_ids=` (the OPTIONAL custom id
+// a user can set at creation) — we never set one, so we're using `?task_ids=` instead, inferred
+// as the sibling parameter for the system-generated id by naming-convention symmetry, not seen
+// directly in an example. This endpoint is also documented as a LIST/query endpoint (accepts
+// plural ids), so its response may come back as an array rather than a single object — the
+// browser-side code now checks both shapes defensively. Three earlier guesses (path-segment id,
+// generic /tasks/{id}, and POST-with-body-only on the creation URL) each failed differently. The
+// create step's shape (contents/refer_image, including base64 support) IS fully confirmed from
+// official docs and is not in question — only this poll approach is still being resolved.
 
 export default async function handler(request, response) {
   response.setHeader('Access-Control-Allow-Origin', '*');
@@ -47,14 +48,13 @@ export default async function handler(request, response) {
     // ---- POLL an existing task ----
     if (task_id) {
       const pollResponse = await fetch(
-        'https://api-singapore.klingai.com/omni-video/kling-3.0-omni',
+        `https://api-singapore.klingai.com/tasks?task_ids=${task_id}`,
         {
-          method: 'POST',
+          method: 'GET',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer ' + apiKey
-          },
-          body: JSON.stringify({ task_id })
+          }
         }
       );
       const data = await pollResponse.json();
