@@ -24,9 +24,8 @@ export default async function handler(request, response) {
   try {
     // ---- POLL an existing task ----
     if (task_id) {
-      // NOTE: Polling path updated from model route to the dedicated v1 query route
       const pollResponse = await fetch(
-        `https://api-singapore.klingai.com/v1/videos/omni-video/${task_id}`,
+        `https://api-singapore.klingai.com/omni-video/kling-3.0-omni/${task_id}`,
         { 
           method: 'GET',
           headers: { 
@@ -52,14 +51,13 @@ export default async function handler(request, response) {
       return response.status(400).json({ error: 'Missing "contents" in request body.' });
     }
 
-    const klingResponse = await fetch('https://api-singapore.klingai.com/v1/videos/omni-video', {
+    const klingResponse = await fetch('https://api-singapore.klingai.com/omni-video/kling-3.0-omni', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + apiKey
       },
       body: JSON.stringify({
-        model_name: 'kling-3.0-omni',
         contents,
         settings: settings || { resolution: '1080p', aspect_ratio: '16:9', duration: 5, audio: 'off', multi_shot: false },
         options: options || { external_task_id: '' }
