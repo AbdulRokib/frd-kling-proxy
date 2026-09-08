@@ -10,11 +10,12 @@
 // This mirrors how the browser-side code needs to call it: once to start, then repeatedly to
 // check progress, all through this one proxy URL.
 //
-// IMPORTANT — genuinely untested piece, flagged honestly: the poll URL below
-// (https://api-singapore.klingai.com/tasks/{id}) is a best-reasoned guess, not a confirmed
-// official example — official docs confirm a POST /tasks endpoint exists for LISTING tasks with
-// filters, and this assumes the single-task-by-id path follows the standard REST convention of
-// appending the id to that same collection path. The create step's shape (contents/refer_image,
+// IMPORTANT — genuinely untested piece, flagged honestly: the poll URL below (a query parameter
+// on the same creation path — ?task_id={id}) is a reasoned guess, not a confirmed official
+// example. Two prior guesses (appending the id as a path segment onto the creation path, and a
+// generic /tasks/{id}) both returned 404. This one can be tested against an EXISTING task_id
+// from a previous run — no new generation credit needed, since checking status is a separate,
+// much cheaper call than creating a new task. The create step's shape (contents/refer_image,
 // including base64 support) IS fully confirmed from official docs and is not in question — only
 // this poll path is still being resolved by trial.
 
@@ -44,7 +45,7 @@ export default async function handler(request, response) {
     // ---- POLL an existing task ----
     if (task_id) {
       const pollResponse = await fetch(
-        `https://api-singapore.klingai.com/tasks/${task_id}`,
+        `https://api-singapore.klingai.com/omni-video/kling-3.0-omni?task_id=${task_id}`,
         { headers: { 'Authorization': 'Bearer ' + apiKey } }
       );
       const data = await pollResponse.json();
