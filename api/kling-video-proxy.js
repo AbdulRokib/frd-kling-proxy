@@ -71,7 +71,7 @@ export default async function handler(request, response) {
       },
       body: JSON.stringify({
         contents,
-        settings: settings || { resolution: '1080p', duration: 5, audio: 'off', multi_shot: false },
+        settings: settings || { resolution: '1080p', aspect_ratio: '16:9', duration: 5, audio: 'off', multi_shot: false },
         options: options || { external_task_id: '' }
       })
     });
