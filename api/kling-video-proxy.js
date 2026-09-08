@@ -1,4 +1,23 @@
-// FRD real Kling VIDEO — proxy function
+// FRD real Kling VIDEO — proxy function (separate from kling-proxy.js, which handles images
+// only and is left untouched). Same reason this exists: browsers can't call Kling's API
+// directly (CORS), servers can. Your browser calls THIS, this calls Kling, the answer comes
+// back through this to your browser. Uses the SAME KLING_API_KEY environment variable already
+// set in Vercel for the image proxy — one Kling account, one key, covers both.
+//
+// Handles two jobs in one endpoint, distinguished by the request body:
+//   - No "task_id" in the body  -> START a new video generation (POST to Kling)
+//   - "task_id" present in the body -> POLL that task's status (GET from Kling)
+// This mirrors how the browser-side code needs to call it: once to start, then repeatedly to
+// check progress, all through this one proxy URL.
+//
+// IMPORTANT — genuinely untested piece, flagged honestly: the poll URL below
+// (https://api-singapore.klingai.com/tasks/{id}) is a best-reasoned guess, not a confirmed
+// official example — official docs confirm a POST /tasks endpoint exists for LISTING tasks with
+// filters, and this assumes the single-task-by-id path follows the standard REST convention of
+// appending the id to that same collection path. The create step's shape (contents/refer_image,
+// including base64 support) IS fully confirmed from official docs and is not in question — only
+// this poll path is still being resolved by trial.
+
 export default async function handler(request, response) {
   response.setHeader('Access-Control-Allow-Origin', '*');
   response.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -25,18 +44,10 @@ export default async function handler(request, response) {
     // ---- POLL an existing task ----
     if (task_id) {
       const pollResponse = await fetch(
-        `https://api-singapore.klingai.com/omni-video/kling-3.0-omni/${task_id}`,
-        { 
-          method: 'GET',
-          headers: { 
-            'Authorization': 'Bearer ' + apiKey,
-            'Content-Type': 'application/json'
-          } 
-        }
+        `https://api-singapore.klingai.com/tasks/${task_id}`,
+        { headers: { 'Authorization': 'Bearer ' + apiKey } }
       );
-      
       const data = await pollResponse.json();
-      
       if (!pollResponse.ok) {
         return response.status(pollResponse.status).json({
           error: `Kling Video poll error ${pollResponse.status}`,
@@ -73,6 +84,9 @@ export default async function handler(request, response) {
       });
     }
 
+    // Pass Kling's real response straight through, unmodified — the browser-side code needs
+    // to see the actual field names (task_id vs data.task_id, etc.) to confirm or correct the
+    // untested assumptions noted above.
     return response.status(200).json(data);
 
   } catch (err) {
