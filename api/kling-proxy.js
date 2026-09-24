@@ -19,7 +19,7 @@ export default async function handler(request, response) {
   if (request.method !== 'POST') {
     return response.status(405).json({ error: 'Only POST requests are accepted.' });
   }
-  const { prompt, imageUrl, imageUrls, elementIds } = request.body || {};
+  const { prompt, imageUrl, imageUrls, elementIds, resolution } = request.body || {};
   if (!prompt) {
     return response.status(400).json({ error: 'Missing "prompt" in request body.' });
   }
@@ -46,6 +46,11 @@ export default async function handler(request, response) {
       aspect_ratio: '16:9',
       n: 1
     };
+    // Optional output resolution (Kling's schema: '1k' default, '2k', '4k'). Used for grid
+    // conversions, which get cropped into panels and need the extra pixels.
+    if (['1k', '2k', '4k'].includes(resolution)) {
+      requestBody.resolution = resolution;
+    }
     // References — FIXED 24 Sep 2026 against Kling's official Omni Image schema. The only
     // documented field is `image_list: [{ image: <URL or Base64> }]`. The previous `image_url` /
     // `image_urls` keys don't exist in the schema and were silently dropped, which is why all three
