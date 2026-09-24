@@ -19,7 +19,7 @@ export default async function handler(request, response) {
   if (request.method !== 'POST') {
     return response.status(405).json({ error: 'Only POST requests are accepted.' });
   }
-  const { prompt, imageUrl, imageUrls } = request.body || {};
+  const { prompt, imageUrl, imageUrls, elementIds } = request.body || {};
   if (!prompt) {
     return response.status(400).json({ error: 'Missing "prompt" in request body.' });
   }
@@ -36,32 +36,41 @@ export default async function handler(request, response) {
     // occasionally exceeds this depending on mood/scene complexity — truncated here with margin
     // to prevent the error, rather than letting it fail intermittently.
     const safePrompt = prompt.length > 2400 ? prompt.slice(0, 2400) : prompt;
+    // FIXED 24 Sep 2026 against Kling's official Omni Image schema: the field is `model_name`,
+    // not `model`. The old `model` key was silently ignored — generation only worked because
+    // model_name defaults to kling-image-o1 (which also means the earlier "kling-v3-omni" attempt
+    // never actually switched models).
     const requestBody = {
-      model: 'kling-image-o1',
+      model_name: 'kling-image-o1',
       prompt: safePrompt,
       aspect_ratio: '16:9',
       n: 1
     };
-    // If a reference image (or images) is passed in, include it — used for Multi-Cam/Pose/
-    // Quick Setup edit calls, not the base single-word generation. UNCONFIRMED whether Kling
-    // accepts a base64 data URI here or strictly requires a real hosted URL — this is the
-    // real, live test for that question, same approach as everything else in this build.
-    // Kling's own docs distinguish two separate parameters: image_url (singular) for a single
-    // reference — Multi-Cam/Pose/Edit Board — versus image_urls (plural array) for genuine
-    // multi-image fusion — Quick Setup's 3-reference merge specifically. Sending a single
-    // reference as an array was the likely cause of Kling appearing to ignore it.
-    if (imageUrl) {
-      requestBody.image_url = imageUrl;
-    } else if (imageUrls && imageUrls.length > 0) {
-      requestBody.image_urls = imageUrls;
+    // References — FIXED 24 Sep 2026 against Kling's official Omni Image schema. The only
+    // documented field is `image_list: [{ image: <URL or Base64> }]`. The previous `image_url` /
+    // `image_urls` keys don't exist in the schema and were silently dropped, which is why all three
+    // earlier reference attempts were "accepted but ignored". The prompt must also cite each image
+    // as <<<image_1>>>, <<<image_2>>>... — that's done browser-side. Base64 is sent without the
+    // data-URI prefix. Formats: jpg/jpeg/png only, ≤10MB, ≥300px, aspect between 1:2.5 and 2.5:1.
+    const toKlingImage = (src) => String(src).replace(/^data:image\/[a-zA-Z+]+;base64,/, '');
+    const refs = imageUrl ? [imageUrl] : (Array.isArray(imageUrls) ? imageUrls : []);
+    if (refs.length > 0) {
+      requestBody.image_list = refs.map(src => ({ image: toKlingImage(src) }));
     }
+    // Element Library IDs (optional, for the Element route) — `element_list: [{ element_id }]`.
+    // IDs are 64-bit, so they're passed as strings from the browser and inserted as bare numbers
+    // below to avoid JavaScript rounding them. Refs + elements combined must not exceed 10.
+    const elementIdList = Array.isArray(elementIds) ? elementIds.map(String).filter(id => /^\d+$/.test(id)) : [];
     const klingResponse = await fetch('https://api-singapore.klingai.com/v1/images/omni-image', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + apiKey
       },
-      body: JSON.stringify(requestBody)
+      body: elementIdList.length > 0
+        ? JSON.stringify({ ...requestBody, element_list: '__ELEMENTS__' })
+            .replace('"__ELEMENTS__"', '[' + elementIdList.map(id => '{"element_id":' + id + '}').join(',') + ']')
+        : JSON.stringify(requestBody)
     });
     const submitData = await klingResponse.json();
     if (!klingResponse.ok || submitData.code !== 0) {
